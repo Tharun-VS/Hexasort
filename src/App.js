@@ -25,25 +25,72 @@ import {
 } from 'lucide-react';
 
 const RecruitmentPlatform = () => {
-  const [currentUser, setCurrentUser] = useState(null);
+  // Initialize currentUser from localStorage
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = localStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  
   const [showLogin, setShowLogin] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [chatMessages, setChatMessages] = useState([
     { type: 'bot', message: 'Hello! I am your AI recruitment assistant. How can I help you today?' }
   ]);
   const [newMessage, setNewMessage] = useState('');
 
+  // Updated login handler with localStorage
   const handleLogin = (email, password) => {
     if (email && password) {
-      setCurrentUser({
+      const userData = {
         name: 'Alex Johnson',
         email: email,
         role: 'HR Manager',
         company: 'TechCorp Solutions'
-      });
+      };
+      
+      setCurrentUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
       setShowLogin(false);
     }
+  };
+
+  // Updated logout handler
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('currentUser');
+    setActiveTab('dashboard'); // Reset to dashboard
+  };
+
+  // File upload handler
+  const handleFileUpload = (event) => {
+    const files = Array.from(event.target.files);
+    const newFiles = files.map(file => ({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2), // Convert to MB
+      type: file.type,
+      uploadDate: new Date().toLocaleDateString(),
+      status: 'processing'
+    }));
+    
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setShowUploadModal(false);
+    
+    // Simulate processing
+    setTimeout(() => {
+      setUploadedFiles(prev => 
+        prev.map(file => 
+          newFiles.find(newFile => newFile.id === file.id) 
+            ? { ...file, status: 'completed' }
+            : file
+        )
+      );
+    }, 2000);
+    
+    console.log('Files uploaded:', newFiles);
   };
 
   const sendMessage = () => {
@@ -55,7 +102,9 @@ const RecruitmentPlatform = () => {
           'I can help you with resume screening and candidate ranking.',
           'Would you like me to analyze the latest batch of resumes?',
           'I can provide insights on candidate skills matching.',
-          'Let me know if you need help with automated notifications.'
+          'Let me know if you need help with automated notifications.',
+          'I can help you schedule interviews with top candidates.',
+          'Would you like me to generate a report on hiring metrics?'
         ];
         const randomResponse = botResponses[Math.floor(Math.random() * botResponses.length)];
         setChatMessages(prev => [...prev, { type: 'bot', message: randomResponse }]);
@@ -65,11 +114,81 @@ const RecruitmentPlatform = () => {
     }
   };
 
+  // Upload Modal Component
+  const UploadModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-8 w-full max-w-md mx-4">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Upload Resume</h2>
+          <button onClick={() => setShowUploadModal(false)} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
+        </div>
+        
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+          <Upload className="mx-auto mb-4 text-gray-400" size={48} />
+          <p className="text-gray-600 mb-4">Drag and drop files here, or click to select</p>
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="resume-upload"
+          />
+          <label
+            htmlFor="resume-upload"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 cursor-pointer inline-block"
+          >
+            Select Files
+          </label>
+        </div>
+        
+        <p className="text-sm text-gray-500 mt-4">
+          Supported formats: PDF, DOC, DOCX (Max 10MB each)
+        </p>
+
+        {uploadedFiles.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Uploads</h3>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {uploadedFiles.slice(-3).map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-blue-500" />
+                    <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    file.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {file.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // Login Modal Component
   const LoginModal = () => {
     const [isSignup, setIsSignup] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+      
+      // Simulate API call
+      setTimeout(() => {
+        handleLogin(email, password);
+        setLoading(false);
+      }, 1000);
+    };
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -83,13 +202,14 @@ const RecruitmentPlatform = () => {
             </button>
           </div>
           
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter your email"
               />
@@ -101,18 +221,20 @@ const RecruitmentPlatform = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter your password"
               />
             </div>
-          </div>
-          
-          <button
-            onClick={() => handleLogin(email, password)}
-            className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-semibold"
-          >
-            {isSignup ? 'Create Account' : 'Sign In'}
-          </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-semibold disabled:opacity-50"
+            >
+              {loading ? 'Please wait...' : (isSignup ? 'Create Account' : 'Sign In')}
+            </button>
+          </form>
           
           <div className="mt-4 text-center">
             <button
@@ -248,6 +370,15 @@ const RecruitmentPlatform = () => {
               </div>
               <p className="text-xs text-gray-500">6 hours ago</p>
             </div>
+            {uploadedFiles.length > 0 && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-800">Resume uploaded</p>
+                  <p className="text-sm text-gray-600">{uploadedFiles[uploadedFiles.length - 1].name}</p>
+                </div>
+                <p className="text-xs text-gray-500">Just now</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,7 +424,17 @@ const RecruitmentPlatform = () => {
       { id: 1, name: 'John Smith', position: 'Software Engineer', score: 95, status: 'shortlisted', skills: ['React', 'Node.js', 'Python'], experience: '5 years' },
       { id: 2, name: 'Sarah Johnson', position: 'Data Scientist', score: 88, status: 'pending', skills: ['Python', 'ML', 'SQL'], experience: '3 years' },
       { id: 3, name: 'Mike Chen', position: 'DevOps Engineer', score: 92, status: 'interviewed', skills: ['AWS', 'Docker', 'K8s'], experience: '4 years' },
-      { id: 4, name: 'Emily Davis', position: 'UX Designer', score: 85, status: 'pending', skills: ['Figma', 'Adobe XD'], experience: '3 years' }
+      { id: 4, name: 'Emily Davis', position: 'UX Designer', score: 85, status: 'pending', skills: ['Figma', 'Adobe XD'], experience: '3 years' },
+      // Add uploaded files to the resume list
+      ...uploadedFiles.filter(file => file.status === 'completed').map(file => ({
+        id: file.id,
+        name: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        position: 'Pending Review',
+        score: Math.floor(Math.random() * 30) + 70, // Random score between 70-100
+        status: 'new',
+        skills: ['TBD'],
+        experience: 'TBD'
+      }))
     ];
 
     return (
@@ -301,7 +442,10 @@ const RecruitmentPlatform = () => {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800">Resume Ranking</h2>
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2">
+            <button 
+              onClick={() => setShowUploadModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center gap-2"
+            >
               <Upload size={16} />
               Upload Resume
             </button>
@@ -336,7 +480,7 @@ const RecruitmentPlatform = () => {
                     <td className="py-4 px-2">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                          {resume.name.split(' ').map(n => n[0]).join('')}
+                          {resume.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </div>
                         <span className="font-medium text-gray-800">{resume.name}</span>
                       </div>
@@ -372,6 +516,7 @@ const RecruitmentPlatform = () => {
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         resume.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
                         resume.status === 'interviewed' ? 'bg-blue-100 text-blue-800' :
+                        resume.status === 'new' ? 'bg-purple-100 text-purple-800' :
                         'bg-yellow-100 text-yellow-800'
                       }`}>
                         {resume.status}
@@ -537,7 +682,7 @@ const RecruitmentPlatform = () => {
             </div>
           </div>
           <button
-            onClick={() => setCurrentUser(null)}
+            onClick={handleLogout}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 text-sm"
           >
             <LogOut size={14} />
@@ -551,12 +696,19 @@ const RecruitmentPlatform = () => {
         <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800 capitalize">{activeTab}</h2>
-            <button
-              onClick={() => setShowChatbot(!showChatbot)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-            >
-              <MessageCircle size={20} />
-            </button>
+            <div className="flex items-center gap-4">
+              {uploadedFiles.length > 0 && (
+                <span className="text-sm text-gray-600">
+                  {uploadedFiles.length} files uploaded
+                </span>
+              )}
+              <button
+                onClick={() => setShowChatbot(!showChatbot)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+              >
+                <MessageCircle size={20} />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -568,6 +720,7 @@ const RecruitmentPlatform = () => {
       </div>
 
       {showChatbot && <Chatbot />}
+      {showUploadModal && <UploadModal />}
     </div>
   );
 };
